@@ -15,13 +15,20 @@ const UserSchema = new Schema(
     company: { type: String, maxlength: 100, required: true },
     team: { type: Schema.Types.ObjectId, ref: "Team" },
     role: { type: String, enum: ["admin", "user"], default: "user" },
-    imageUrl: {
-      type: String,
-      default: () =>
-        `https://ui-avatars.com/api/?name=${this.firstName}+${this.lastName}&background=random`,
-    }, //TODO: Fine tune Colors/Size etc
+    imageUrl: { type: String },
   },
   { timestamps: true }
 );
+//Pre-save hook to make sure the Icon Assignment does not end in "undefined"
+UserSchema.pre("save", function (next) {
+  if (!this.imageUrl) {
+    const first = this.firstName || "";
+    const last = this.lastName || "";
+    this.imageUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+      first
+    )}+${encodeURIComponent(last)}&background=random`;
+  }
+  next();
+});
 
 module.exports = model("User", UserSchema);
