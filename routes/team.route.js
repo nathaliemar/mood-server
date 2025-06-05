@@ -1,6 +1,8 @@
 const express = require("express");
 const Team = require("../models/Team.model");
+const { isAuthenticated } = require("../middleware/authHandler");
 const router = express.Router();
+const User = require("../models/User.model");
 
 //GET all teams
 router.get("/api/teams", async (req, res, next) => {
@@ -18,6 +20,9 @@ router.get("/api/teams/:id", async (req, res, next) => {
   const { id } = req.params;
   try {
     const team = await Team.findById(id);
+    if (!team) {
+      return res.status(404).json({ message: "Team not found." });
+    }
     console.log("Team retrieved", team);
     res.json(team);
   } catch (error) {
@@ -26,13 +31,17 @@ router.get("/api/teams/:id", async (req, res, next) => {
 });
 
 //POST team
-router.post("/api/teams", async (req, res, next) => {
+router.post("/api/teams", isAuthenticated, async (req, res, next) => {
+  if (req.body.teamName === "") {
+    res.status(400).json({ message: "Provide a team name." });
+    return;
+  }
   try {
     const newTeam = await Team.create({
-      //FYI: members & team lead remain empty, can only be set in "put"
+      //FYI: team leads remains empty, can only be set in "put"
       teamName: req.body.teamName,
-      company: req.body.company,
-      createdBy, //TODO: AFTER AUTH IMPLEMENTATION
+      createdBy: req.payload._id,
+      company: req.payload.company,
     });
     res.status(201).json(newTeam);
   } catch (error) {
@@ -44,12 +53,33 @@ router.post("/api/teams", async (req, res, next) => {
   }
 });
 
-//PUT
+//PUT (update name, leads)
+//!Memberships can only be assigned via user route
 router.put("/api/teams/:id", async (req, res, next) => {
-  //TODO after auth
+  const { id } = req.params;
+  // Only allow updating teamName and teamLeads (or whatever your field is called)
+  const { teamName, teamLeads } = req.body;
+
+  // Build the update object
+  const updateData = {};
+  if (teamName !== undefined) updateData.teamName = teamName;
+  if (teamLeads !== undefined) updateData.teamLeads = teamLeads;
+
+  try {
+    const updatedTeam = await Team.findByIdAndUpdate(id, updateData, {
+      new: true,
+    });
+    if (!updatedTeam) {
+      return res.status(404).json({ message: "Team not found." });
+    }
+    res.json(updatedTeam);
+  } catch (error) {
+    next(error);
+  }
 });
 
 //DELETE
+//! Can only be done if no users assigned
 router.delete("/api/teams/:id", async (req, res, next) => {
   const { id } = req.params;
   try {
@@ -74,7 +104,7 @@ router.delete("/api/teams/:id", async (req, res, next) => {
     if (!deletedTeam) {
       return res.status(404).json({ message: "Team not found." });
     }
-    res.json({ message: "Team deleted successfully." });
+    res.status(204).send();
   } catch (error) {
     next(error);
   }

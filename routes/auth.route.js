@@ -1,4 +1,3 @@
-// routes/auth.routes.js
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
@@ -108,10 +107,10 @@ router.post("/api/auth/login", async (req, res, next) => {
     const passwordCorrect = bcrypt.compareSync(password, foundUser.password);
     if (passwordCorrect) {
       //deconstruct user's details to omit password
-      const { _id, email, firstName, lastName } = foundUser;
+      const { _id, email, firstName, lastName, company } = foundUser;
 
       //create object that will be used as token payload
-      const payload = { _id, email, firstName, lastName };
+      const payload = { _id, email, firstName, lastName, company };
 
       //create + sign token
       const authToken = jwt.sign(payload, process.env.TOKEN_SECRET, {

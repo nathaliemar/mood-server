@@ -24,6 +24,10 @@ const teamRoute = require("./routes/team.route");
 app.use("/", teamRoute);
 const authRoute = require("./routes/auth.route");
 app.use("/", authRoute);
+const moodEntryRoute = require("./routes/moodEntry.route");
+app.use("/", moodEntryRoute);
+const userRoute = require("./routes/user.route");
+app.use("/", userRoute);
 //ERROR HANDLING
 //Not found
 app.use(notFoundHandler);
