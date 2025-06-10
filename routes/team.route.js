@@ -53,7 +53,7 @@ router.post("/api/teams", isAuthenticated, async (req, res, next) => {
   }
 });
 
-//PUT (update name, leads)
+//PUT (update name)
 //!Memberships can only be assigned via user route
 router.put("/api/teams/:id", async (req, res, next) => {
   const { id } = req.params;
@@ -63,9 +63,15 @@ router.put("/api/teams/:id", async (req, res, next) => {
   // Build the update object
   const updateData = {};
   if (teamName !== undefined) updateData.teamName = teamName;
-  if (teamLeads !== undefined) updateData.teamLeads = teamLeads;
 
   try {
+    // Check for duplicate team name (excluding current team)
+    if (teamName) {
+      const existingTeam = await Team.findOne({ teamName, _id: { $ne: id } });
+      if (existingTeam) {
+        return res.status(409).json({ message: "Team name already exists." });
+      }
+    }
     const updatedTeam = await Team.findByIdAndUpdate(id, updateData, {
       new: true,
     });
