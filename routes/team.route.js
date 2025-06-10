@@ -32,8 +32,8 @@ router.get("/api/teams/:id", async (req, res, next) => {
 
 //POST team
 router.post("/api/teams", isAuthenticated, async (req, res, next) => {
-  if (req.body.teamName === "") {
-    res.status(400).json({ message: "Provide a team name." });
+  if (!req.body.teamName) {
+    res.status(400).json({ message: "Please provide a valid team name." });
     return;
   }
   try {
@@ -62,8 +62,16 @@ router.put("/api/teams/:id", async (req, res, next) => {
 
   // Build the update object
   const updateData = {};
-  if (teamName !== undefined) updateData.teamName = teamName;
-
+  if (teamName !== undefined) {
+    //no update was made at all
+    if (!teamName) {
+      //an invalid update was made
+      return res
+        .status(400)
+        .json({ message: "Please provide a valid team name." });
+    }
+    updateData.teamName = teamName;
+  }
   try {
     // Check for duplicate team name (excluding current team)
     if (teamName) {
