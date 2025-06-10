@@ -16,6 +16,7 @@ const UserSchema = new Schema(
     team: { type: Schema.Types.ObjectId, ref: "Team" },
     role: { type: String, enum: ["admin", "user"], default: "user" },
     imageUrl: { type: String },
+    isTeamlead: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
