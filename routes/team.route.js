@@ -89,8 +89,7 @@ router.delete("/api/teams/:id", async (req, res, next) => {
     if (usersWithTeam.length) {
       // There are users assigned to this team, return arr of obj containing these users to make it easy for admin
       return res.status(409).json({
-        message:
-          "Cannot delete team: users are still assigned to this team. Please reassign all users to other teams first.",
+        message: "Cannot delete team while users are assigned.",
         users: usersWithTeam.map((u) => ({
           id: u._id,
           name: u.name,
