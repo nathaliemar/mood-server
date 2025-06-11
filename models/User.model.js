@@ -14,7 +14,12 @@ const UserSchema = new Schema(
     lastName: { type: String, maxlength: 50 },
     company: { type: String, maxlength: 100, required: true },
     team: { type: Schema.Types.ObjectId, ref: "Team" },
-    role: { type: String, enum: ["admin", "user"], default: "user" },
+    role: {
+      type: String,
+      enum: ["admin", "user"],
+      default: "user",
+      lowercase: true,
+    },
     imageUrl: { type: String },
     isTeamlead: { type: Boolean, default: false },
   },
