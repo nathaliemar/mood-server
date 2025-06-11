@@ -49,6 +49,15 @@ router.put("/api/users/:id", async (req, res, next) => {
         message: "Cannot remove team without providing a replacement.",
       });
     }
+    //Block assigning teamLead without team assigned
+    if (
+      (userData.isTeamlead === true || userData.isTeamlead === "true") && // being set to true
+      (!team || team === "")
+    ) {
+      return res.status(400).json({
+        message: "Please assign a team before making a user team lead",
+      });
+    }
     // Update the user document (including the new team if provided)
     const updatedUser = await User.findByIdAndUpdate(
       id,
@@ -65,7 +74,6 @@ router.put("/api/users/:id", async (req, res, next) => {
 //DELETE
 //Referential integrity:
 //TEAMS
-//if user was teamlead, remove the user as lead from the team model
 //MOODENTRIES
 //remove "createdby"
 router.delete("/api/users/:id", async (req, res, next) => {
