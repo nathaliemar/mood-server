@@ -4,6 +4,7 @@ const router = express.Router();
 const { isAuthenticated } = require("../middleware/authHandler");
 const Team = require("../models/Team.model");
 const MoodEntry = require("../models/MoodEntry.model");
+const { default: mongoose } = require("mongoose");
 
 //! Entries are create+read only
 
@@ -24,6 +25,9 @@ router.get(
   async (req, res, next) => {
     try {
       const { userId } = req.params;
+      if (!mongoose.Types.ObjectId.isValid(userId)) {
+        return res.status(400).json({ message: "Invalid user id" });
+      }
       const entries = await MoodEntry.find({ createdBy: userId }).populate(
         "createdBy",
         "-password"
