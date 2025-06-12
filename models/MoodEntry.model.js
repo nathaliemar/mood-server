@@ -11,6 +11,7 @@ const MoodEntrySchema = new Schema(
       type: Date,
       required: true,
     },
+    company: { type: Schema.Types.ObjectId, ref: "Company" },
   },
   { timestamps: true }
 );

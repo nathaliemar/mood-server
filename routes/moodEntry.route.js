@@ -11,7 +11,11 @@ const { default: mongoose } = require("mongoose");
 //GET ALL
 router.get("/api/moodentries", isAuthenticated, async (req, res, next) => {
   try {
-    const entries = await MoodEntry.find().populate("createdBy", "-password");
+    const companyId = req.payload.company;
+    const entries = await MoodEntry.find({ company: companyId }).populate(
+      "createdBy",
+      "-password"
+    );
     res.json(entries);
   } catch (error) {
     next(error);
@@ -28,10 +32,13 @@ router.get(
       if (!mongoose.Types.ObjectId.isValid(userId)) {
         return res.status(400).json({ message: "Invalid user id" });
       }
-      const entries = await MoodEntry.find({ createdBy: userId }).populate(
-        "createdBy",
-        "-password"
-      );
+      const entries = await MoodEntry.find({
+        createdBy: userId,
+      }).populate("createdBy", "-password");
+      console.log("Querying MoodEntry with:", {
+        createdBy: userId,
+      });
+      console.log("Found entries:", entries.length);
       res.json(entries);
     } catch (error) {
       next(error);
@@ -79,12 +86,16 @@ router.get(
   async (req, res, next) => {
     try {
       const { id } = req.params;
-      const entries = await MoodEntry.find().populate({
+      // Find users in the team and company
+      const users = await User.find({ team: id }).select("_id");
+      const userIds = users.map((u) => u._id);
+      //Find entries by those users
+      const entries = await MoodEntry.find({
+        createdBy: { $in: userIds },
+      }).populate({
         path: "createdBy",
-        match: { team: id },
         select: "-password",
       });
-      // Filter out entries where createdBy is null (not in this team)
       res.json(entries.filter((e) => e.createdBy));
     } catch (error) {
       next(error);
@@ -101,7 +112,7 @@ router.get(
     try {
       const { date } = req.query;
       if (!date) return res.status(400).json({ message: "Date is required." });
-      const entryDate = new Date(date); //parse date to be JS date object
+      const entryDate = new Date(date);
       if (isNaN(entryDate.getTime())) {
         return res.status(400).json({ message: "Invalid date format." });
       }
@@ -111,12 +122,13 @@ router.get(
 
       let entries;
       if (user.role === "admin") {
-        entries = await MoodEntry.find({ date: entryDate }).populate(
-          "createdBy",
-          "-password"
-        );
+        entries = await MoodEntry.find({
+          date: entryDate,
+        }).populate("createdBy", "-password");
       } else if (user.team) {
-        const teamUsers = await User.find({ team: user.team }).select("_id");
+        const teamUsers = await User.find({
+          team: user.team,
+        }).select("_id");
         const userIds = teamUsers.map((u) => u._id);
         entries = await MoodEntry.find({
           createdBy: { $in: userIds },
@@ -139,6 +151,7 @@ router.get(
 router.post("/api/moodentries", isAuthenticated, async (req, res, next) => {
   try {
     const { score, note, date } = req.body;
+    const companyId = req.payload.company;
 
     if (!date) {
       return res.status(400).json({ message: "Date is required." });
@@ -165,6 +178,7 @@ router.post("/api/moodentries", isAuthenticated, async (req, res, next) => {
       score,
       note,
       date: entryDate,
+      company: companyId,
     });
     res.status(201).json(newEntry);
   } catch (error) {
@@ -176,10 +190,11 @@ router.post("/api/moodentries", isAuthenticated, async (req, res, next) => {
 
 router.get("/api/moodentries/:id", isAuthenticated, async (req, res, next) => {
   try {
-    const entry = await MoodEntry.findById(req.params.id).populate(
-      "createdBy",
-      "-password"
-    );
+    const companyId = req.payload.company;
+    const entry = await MoodEntry.findOne({
+      _id: req.params.id,
+      company: companyId,
+    }).populate("createdBy", "-password");
     if (!entry)
       return res.status(404).json({ message: "Mood entry not found" });
     res.json(entry);

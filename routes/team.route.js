@@ -5,9 +5,10 @@ const router = express.Router();
 const User = require("../models/User.model");
 
 //GET all teams
-router.get("/api/teams", async (req, res, next) => {
+router.get("/api/teams", isAuthenticated, async (req, res, next) => {
   try {
-    const teams = await Team.find();
+    const companyId = req.payload.company;
+    const teams = await Team.find({ company: companyId });
     console.log("Retrieved teams", teams);
     res.json(teams);
   } catch (error) {
@@ -16,10 +17,11 @@ router.get("/api/teams", async (req, res, next) => {
 });
 
 //GET team by ID
-router.get("/api/teams/:id", async (req, res, next) => {
+router.get("/api/teams/:id", isAuthenticated, async (req, res, next) => {
   const { id } = req.params;
   try {
-    const team = await Team.findById(id);
+    const companyId = req.payload.company;
+    const team = await Team.findOne({ _id: id, company: companyId });
     if (!team) {
       return res.status(404).json({ message: "Team not found." });
     }
@@ -55,17 +57,15 @@ router.post("/api/teams", isAuthenticated, async (req, res, next) => {
 
 //PUT (update name)
 //!Memberships can only be assigned via user route
-router.put("/api/teams/:id", async (req, res, next) => {
+router.put("/api/teams/:id", isAuthenticated, async (req, res, next) => {
   const { id } = req.params;
-  // Only allow updating teamName and teamLeads (or whatever your field is called)
-  const { teamName, teamLeads } = req.body;
+  const { teamName } = req.body;
+  const companyId = req.payload.company;
 
   // Build the update object
   const updateData = {};
   if (teamName !== undefined) {
-    //no update was made at all
     if (!teamName) {
-      //an invalid update was made
       return res
         .status(400)
         .json({ message: "Please provide a valid team name." });
@@ -73,16 +73,22 @@ router.put("/api/teams/:id", async (req, res, next) => {
     updateData.teamName = teamName;
   }
   try {
-    // Check for duplicate team name (excluding current team)
+    // Check for duplicate team name (excluding current team) within the same company
     if (teamName) {
-      const existingTeam = await Team.findOne({ teamName, _id: { $ne: id } });
+      const existingTeam = await Team.findOne({
+        teamName,
+        _id: { $ne: id },
+        company: companyId,
+      });
       if (existingTeam) {
         return res.status(409).json({ message: "Team name already exists." });
       }
     }
-    const updatedTeam = await Team.findByIdAndUpdate(id, updateData, {
-      new: true,
-    });
+    const updatedTeam = await Team.findOneAndUpdate(
+      { _id: id, company: companyId },
+      updateData,
+      { new: true }
+    );
     if (!updatedTeam) {
       return res.status(404).json({ message: "Team not found." });
     }
@@ -94,7 +100,7 @@ router.put("/api/teams/:id", async (req, res, next) => {
 
 //DELETE
 //! Can only be done if no users assigned
-router.delete("/api/teams/:id", async (req, res, next) => {
+router.delete("/api/teams/:id", isAuthenticated, async (req, res, next) => {
   const { id } = req.params;
   try {
     // Find users assigned to this team

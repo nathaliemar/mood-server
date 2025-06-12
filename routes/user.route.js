@@ -7,9 +7,12 @@ const MoodEntry = require("../models/MoodEntry.model");
 const mongoose = require("mongoose");
 
 //GET ALL
-router.get("/api/users", async (req, res, next) => {
+router.get("/api/users", isAuthenticated, async (req, res, next) => {
   try {
-    const users = await User.find({}).select("-password").populate("team");
+    const companyId = req.payload.company;
+    const users = await User.find({ company: companyId })
+      .select("-password")
+      .populate("team");
     console.log("Retrieved users", users);
     res.json(users);
   } catch (error) {
@@ -18,14 +21,17 @@ router.get("/api/users", async (req, res, next) => {
 });
 
 //GET BY ID
-router.get("/api/users/:id", async (req, res, next) => {
+router.get("/api/users/:id", isAuthenticated, async (req, res, next) => {
   const { id } = req.params;
   try {
     // Check if id is a valid ObjectId
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ message: "Invalid user ID format" });
     }
-    const user = await User.findById(id).select("-password").populate("team");
+    const companyId = req.payload.company;
+    const user = await User.findOne({ _id: id, company: companyId })
+      .select("-password")
+      .populate("team");
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -36,12 +42,17 @@ router.get("/api/users/:id", async (req, res, next) => {
   }
 });
 //PUT
-router.put("/api/users/:id", async (req, res, next) => {
+router.put("/api/users/:id", isAuthenticated, async (req, res, next) => {
   const { id } = req.params;
   const { team, ...userData } = req.body;
   try {
-    // Find the current user
-    const user = await User.findById(id);
+    const companyId = req.payload.company;
+    // Find the current user, but only if they belong to the same company
+    const user = await User.findOne({ _id: id, company: companyId });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
     // Block removal of team without replacement if user already has a team
     if (user.team && (!team || team === "")) {
@@ -59,8 +70,8 @@ router.put("/api/users/:id", async (req, res, next) => {
       });
     }
     // Update the user document (including the new team if provided)
-    const updatedUser = await User.findByIdAndUpdate(
-      id,
+    const updatedUser = await User.findOneAndUpdate(
+      { _id: id, company: companyId },
       { ...userData, team: team || null },
       { new: true }
     ).select("-password");
@@ -76,18 +87,23 @@ router.put("/api/users/:id", async (req, res, next) => {
 //TEAMS
 //MOODENTRIES
 //remove "createdby"
-router.delete("/api/users/:id", async (req, res, next) => {
+router.delete("/api/users/:id", isAuthenticated, async (req, res, next) => {
   const { id } = req.params;
   try {
-    //Before deleting the user, remove them from teamLeads arrays
-    await Team.updateMany({ teamLeads: id }, { $pull: { teamLeads: id } });
-    //TODO: Frontend: if (!team.createdBy) displayName="Deleted User"
-    await Team.updateMany({ createdBy: id }, { $set: { createdBy: null } });
+    const companyId = req.payload.company;
+    // Only delete if user belongs to the same company
+    const user = await User.findOne({ _id: id, company: companyId });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    //Before deleting the user, remove them from createdby of teams
+    await Team.updateMany(
+      { createdBy: id, company: companyId },
+      { $set: { createdBy: null } }
+    );
 
-    //TODO: Frontend: Filter out responses createdBy "null"
-    //Before deleting, set author of moodEntries to null
     await MoodEntry.updateMany(
-      { createdBy: id },
+      { createdBy: id, company: companyId },
       { $set: { createdBy: null } }
     );
     //Delete user

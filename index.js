@@ -28,6 +28,8 @@ const moodEntryRoute = require("./routes/moodEntry.route");
 app.use("/", moodEntryRoute);
 const userRoute = require("./routes/user.route");
 app.use("/", userRoute);
+const companyRoute = require("./routes/company.route");
+app.use("/", companyRoute);
 //ERROR HANDLING
 //Not found
 app.use(notFoundHandler);

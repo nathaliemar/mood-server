@@ -12,7 +12,7 @@ const UserSchema = new Schema(
     },
     firstName: { type: String, maxlength: 50 },
     lastName: { type: String, maxlength: 50 },
-    company: { type: String, maxlength: 100, required: true },
+    company: { type: Schema.Types.ObjectId, ref: "Company", required: true },
     team: { type: Schema.Types.ObjectId, ref: "Team" },
     role: {
       type: String,

@@ -8,33 +8,31 @@ const { isAuthenticated } = require("../middleware/authHandler");
 // POST /auth/signup
 router.post("/api/auth/signup", async (req, res, next) => {
   const { email, password, firstName, lastName, company } = req.body;
+
+  // Accept company as either an object or an id string
+  const companyId =
+    company && typeof company === "object" && company !== null
+      ? company._id
+      : company;
+
   //Check if any required attributes are an empty string
-  if (
-    email === "" ||
-    password === "" ||
-    firstName === "" ||
-    lastName === "" ||
-    company === ""
-  ) {
-    res
+  if (!email || !password || !firstName || !lastName || !companyId) {
+    return res
       .status(400)
-      .json({ message: "Provide email, password, name and company name" });
-    return;
+      .json({ message: "Provide email, password, name and company" });
   }
   //Regex to validate email format
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
   if (!emailRegex.test(email)) {
-    res.status(400).json({ message: "Provide a valid email address" });
-    return;
+    return res.status(400).json({ message: "Provide a valid email address" });
   }
   //Regex to validate Password
   const passwordRegex = /(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,}/;
   if (!passwordRegex.test(password)) {
-    res.status(400).json({
+    return res.status(400).json({
       message:
         "Password must have at least 8 characters and contain at least one number, one lowercase and one uppercase letter.",
     });
-    return;
   }
 
   try {
@@ -46,14 +44,25 @@ router.post("/api/auth/signup", async (req, res, next) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
+    // Check if this is the first user for the company
+    const userCount = await User.countDocuments({ company: companyId });
+
     //Create new user in DB
     const newUser = await User.create({
       email,
       password: hashedPassword,
       firstName,
       lastName,
-      company,
+      company: companyId,
+      role: userCount === 0 ? "admin" : "user",
     });
+
+    // If first user, update company.createdBy
+    if (userCount === 0) {
+      const Company = require("../models/Company.model");
+      await Company.findByIdAndUpdate(companyId, { createdBy: newUser._id });
+    }
+
     // Deconstruct the newly created user object to omit the password
     // We should never expose passwords publicly
     const {
