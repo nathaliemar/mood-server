@@ -91,6 +91,12 @@ router.delete("/api/users/:id", isAuthenticated, async (req, res, next) => {
   const { id } = req.params;
   try {
     const companyId = req.payload.company;
+    // Block self-deletion
+    if (req.payload._id === id) {
+      return res
+        .status(400)
+        .json({ message: "You cannot delete your own user account." });
+    }
     // Only delete if user belongs to the same company
     const user = await User.findOne({ _id: id, company: companyId });
     if (!user) {
@@ -102,10 +108,7 @@ router.delete("/api/users/:id", isAuthenticated, async (req, res, next) => {
       { $set: { createdBy: null } }
     );
 
-    await MoodEntry.updateMany(
-      { createdBy: id, company: companyId },
-      { $set: { createdBy: null } }
-    );
+    await MoodEntry.deleteMany({ createdBy: id, company: companyId });
     //Delete user
     await User.findByIdAndDelete(id);
     res.status(204).send();
