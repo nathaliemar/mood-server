@@ -142,7 +142,9 @@ router.post("/api/auth/login", async (req, res, next) => {
 router.get("/api/auth/me", isAuthenticated, async (req, res, next) => {
   try {
     // req.payload._id is set by isAuthenticated middleware
-    const user = await User.findById(req.payload._id).select("-password"); //omit pw in resp
+    const user = await User.findById(req.payload._id)
+      .select("-password")
+      .populate("team"); //omit pw in resp
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
