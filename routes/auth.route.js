@@ -5,9 +5,10 @@ const User = require("../models/User.model");
 const router = express.Router();
 const { isAuthenticated } = require("../middleware/authHandler");
 
-// POST /auth/signup
+// POST /api/auth/signup
 router.post("/api/auth/signup", async (req, res, next) => {
-  const { email, password, firstName, lastName, company } = req.body;
+  let { email, password, firstName, lastName, company } = req.body;
+  email = email.trim().toLowerCase();
 
   // Accept company as either an object or an id string
   const companyId =
@@ -95,7 +96,8 @@ router.post("/api/auth/signup", async (req, res, next) => {
 
 // POST /api/auth/login
 router.post("/api/auth/login", async (req, res, next) => {
-  const { email, password } = req.body;
+  let { email, password } = req.body;
+  email = email.trim().toLowerCase();
 
   //check if email or password are empty
   if (email === "" || password === "") {
