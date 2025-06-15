@@ -27,6 +27,42 @@ router.get(
   }
 );
 
+//GET ALL FOR A SPECIFIC DATE
+router.get(
+  "/api/moodentries/all/today",
+  isAuthenticated,
+  isAdmin,
+  async (req, res, next) => {
+    try {
+      const { date } = req.query;
+      const companyId = req.payload.company;
+      if (!date) return res.status(400).json({ message: "Date is required." });
+      const entryDate = new Date(date);
+      if (isNaN(entryDate.getTime())) {
+        return res.status(400).json({ message: "Invalid date format." });
+      }
+
+      // Find all users in the company
+      const users = await User.find({ company: companyId }).select("_id team");
+      const userIds = users.map((u) => u._id);
+
+      // Find all mood entries for today for all users in the company
+      const entries = await MoodEntry.find({
+        createdBy: { $in: userIds },
+        date: entryDate,
+        company: companyId,
+      }).populate({
+        path: "createdBy",
+        select: "-password",
+        populate: { path: "team" },
+      });
+
+      res.json(entries);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 //GET ALL FOR A SPECIFIC USER
 router.get(
   "/api/moodentries/user/:userId",
@@ -94,6 +130,7 @@ router.get(
   async (req, res, next) => {
     try {
       const { id } = req.params;
+      const { date } = req.query;
       const companyId = req.payload.company;
       // Find users in the team and company
       const users = await User.find({ team: id, company: companyId }).select(
@@ -101,10 +138,18 @@ router.get(
       );
       const userIds = users.map((u) => u._id);
       //Find entries by those users and company
-      const entries = await MoodEntry.find({
+      let query = {
         createdBy: { $in: userIds },
         company: companyId,
-      }).populate({
+      };
+      if (date) {
+        const entryDate = new Date(date);
+        if (isNaN(entryDate.getTime())) {
+          return res.status(400).json({ message: "Invalid date format." });
+        }
+        query.date = entryDate;
+      }
+      const entries = await MoodEntry.find(query).populate({
         path: "createdBy",
         select: "-password",
       });
