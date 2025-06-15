@@ -1,7 +1,7 @@
 const express = require("express");
 const User = require("../models/User.model");
 const router = express.Router();
-const { isAuthenticated } = require("../middleware/authHandler");
+const { isAuthenticated, isAdmin } = require("../middleware/authHandler");
 const Team = require("../models/Team.model");
 const MoodEntry = require("../models/MoodEntry.model");
 const { default: mongoose } = require("mongoose");
@@ -9,18 +9,23 @@ const { default: mongoose } = require("mongoose");
 //! Entries are create+read only
 
 //GET ALL
-router.get("/api/moodentries", isAuthenticated, async (req, res, next) => {
-  try {
-    const companyId = req.payload.company;
-    const entries = await MoodEntry.find({ company: companyId }).populate(
-      "createdBy",
-      "-password"
-    );
-    res.json(entries);
-  } catch (error) {
-    next(error);
+router.get(
+  "/api/moodentries",
+  isAuthenticated,
+  isAdmin,
+  async (req, res, next) => {
+    try {
+      const companyId = req.payload.company;
+      const entries = await MoodEntry.find({ company: companyId }).populate(
+        "createdBy",
+        "-password"
+      );
+      res.json(entries);
+    } catch (error) {
+      next(error);
+    }
   }
-});
+);
 
 //GET ALL FOR A SPECIFIC USER
 router.get(
@@ -55,6 +60,8 @@ router.get(
     try {
       const { userId } = req.params;
       const { date } = req.query;
+      const companyId = req.payload.company;
+      console.log("compayn id", companyId);
       if (!date) return res.status(400).json({ message: "Date is required." });
       const entryDate = new Date(date);
       if (isNaN(entryDate.getTime())) {
@@ -64,6 +71,7 @@ router.get(
       const entry = await MoodEntry.findOne({
         createdBy: userId,
         date: entryDate,
+        company: companyId,
       }).populate("createdBy", "-password");
 
       if (!entry) {
@@ -86,12 +94,16 @@ router.get(
   async (req, res, next) => {
     try {
       const { id } = req.params;
+      const companyId = req.payload.company;
       // Find users in the team and company
-      const users = await User.find({ team: id }).select("_id");
+      const users = await User.find({ team: id, company: companyId }).select(
+        "_id"
+      );
       const userIds = users.map((u) => u._id);
-      //Find entries by those users
+      //Find entries by those users and company
       const entries = await MoodEntry.find({
         createdBy: { $in: userIds },
+        company: companyId,
       }).populate({
         path: "createdBy",
         select: "-password",
@@ -103,14 +115,16 @@ router.get(
   }
 );
 
-// GET today's mood entries for the requesting user's team (user) or everyone (admin)
-//TODO: Ensure frontend sends queryparam with local today date
+// GET today's mood entries for the requesting user's team
+// Ensure frontend sends queryparam with local today date
 router.get(
   "/api/moodentries/today",
   isAuthenticated,
   async (req, res, next) => {
     try {
       const { date } = req.query;
+      const companyId = req.payload.company;
+      console.log("companyid: ", companyId);
       if (!date) return res.status(400).json({ message: "Date is required." });
       const entryDate = new Date(date);
       if (isNaN(entryDate.getTime())) {
@@ -120,25 +134,22 @@ router.get(
       const user = await User.findById(req.payload._id);
       if (!user) return res.status(404).json({ message: "User not found" });
 
-      let entries;
-      if (user.role === "admin") {
-        entries = await MoodEntry.find({
-          date: entryDate,
-        }).populate("createdBy", "-password");
-      } else if (user.team) {
-        const teamUsers = await User.find({
-          team: user.team,
-        }).select("_id");
-        const userIds = teamUsers.map((u) => u._id);
-        entries = await MoodEntry.find({
-          createdBy: { $in: userIds },
-          date: entryDate,
-        }).populate("createdBy", "-password");
-      } else {
+      if (!user.team) {
         return res
           .status(400)
           .json({ message: "User is not assigned to a team." });
       }
+
+      const teamUsers = await User.find({
+        team: user.team,
+        company: companyId,
+      }).select("_id");
+      const userIds = teamUsers.map((u) => u._id);
+      const entries = await MoodEntry.find({
+        createdBy: { $in: userIds },
+        date: entryDate,
+        company: companyId,
+      }).populate("createdBy", "-password");
 
       res.json(entries);
     } catch (error) {
@@ -187,7 +198,6 @@ router.post("/api/moodentries", isAuthenticated, async (req, res, next) => {
 });
 
 //GET BY ENTRY ID
-
 router.get("/api/moodentries/:id", isAuthenticated, async (req, res, next) => {
   try {
     const companyId = req.payload.company;

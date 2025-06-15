@@ -45,7 +45,7 @@ router.post("/api/auth/signup", async (req, res, next) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Check if this is the first user for the company
+    // Check if this is the first user for the company to define role
     const userCount = await User.countDocuments({ company: companyId });
 
     //Create new user in DB
@@ -65,7 +65,6 @@ router.post("/api/auth/signup", async (req, res, next) => {
     }
 
     // Deconstruct the newly created user object to omit the password
-    // We should never expose passwords publicly
     const {
       email: userEmail,
       firstName: userFirstName,
@@ -118,10 +117,10 @@ router.post("/api/auth/login", async (req, res, next) => {
     const passwordCorrect = bcrypt.compareSync(password, foundUser.password);
     if (passwordCorrect) {
       //deconstruct user's details to omit password
-      const { _id, email, firstName, lastName, company } = foundUser;
+      const { _id, email, firstName, lastName, company, role } = foundUser;
 
       //create object that will be used as token payload
-      const payload = { _id, email, firstName, lastName, company };
+      const payload = { _id, email, firstName, lastName, company, role };
 
       //create + sign token
       const authToken = jwt.sign(payload, process.env.TOKEN_SECRET, {

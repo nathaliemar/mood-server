@@ -22,4 +22,12 @@ function isAuthenticated(req, res, next) {
     res.status(401).json("token not provided or not valid");
   }
 }
-module.exports = { isAuthenticated };
+
+function isAdmin(req, res, next) {
+  if (req.payload && req.payload.role === "admin") {
+    return next();
+  }
+  return res.status(403).json({ message: "Admin access required." });
+}
+
+module.exports = { isAuthenticated, isAdmin };
