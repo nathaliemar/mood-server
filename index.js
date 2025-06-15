@@ -14,10 +14,14 @@ const app = express();
 middlewareConfig(app);
 
 //DB Connection
-mongoose
-  .connect(MONGODB_URI)
-  .then((x) => console.log(`Connected to database: "${x.connections[0].name}"`))
-  .catch((err) => console.error("Error connecting to MongoDB", err));
+(async () => {
+  try {
+    const x = await mongoose.connect(MONGODB_URI);
+    console.log(`Connected to database: "${x.connections[0].name}"`);
+  } catch (err) {
+    console.error("Error connecting to MongoDB", err);
+  }
+})();
 
 //ROUTES
 const teamRoute = require("./routes/team.route");
