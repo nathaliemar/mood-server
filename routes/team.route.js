@@ -39,6 +39,15 @@ router.post("/api/teams", isAuthenticated, async (req, res, next) => {
     return;
   }
   try {
+    const companyId = req.payload.company;
+    // Check for duplicate team name within the same company
+    const existingTeam = await Team.findOne({
+      teamName: req.body.teamName,
+      company: companyId,
+    });
+    if (existingTeam) {
+      return res.status(409).json({ message: "Team name already exists." });
+    }
     const newTeam = await Team.create({
       //FYI: team leads remains empty, can only be set in "put"
       teamName: req.body.teamName,
@@ -47,10 +56,6 @@ router.post("/api/teams", isAuthenticated, async (req, res, next) => {
     });
     res.status(201).json(newTeam);
   } catch (error) {
-    // Handle duplicate team name error individually
-    if (error.code === 11000 && error.keyPattern && error.keyPattern.teamName) {
-      return res.status(409).json({ message: "Team name already exists." });
-    }
     next(error);
   }
 });
